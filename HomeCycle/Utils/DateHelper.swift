@@ -1,0 +1,19 @@
+import Foundation
+
+extension Date {
+    // 2026년 4월 16일
+    var koreanFormatted: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.dateFormat = "yyyy년 M월 d일"
+        return formatter.string(from: self)
+    }
+    
+    // 2026년 4월 16일 (요일)
+    var koreanFormattedWithDay: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ko_KR")
+        formatter.dateFormat = "yyyy년 M월 d일 (E)"
+        return formatter.string(from: self)
+    }
+}
