@@ -7,18 +7,27 @@ struct ApplianceListView: View {
     @Query private var appliances: [Appliance]
     
     @State private var showAddAppliance = false
+    @State private var searchText = ""
+    
+    var filteredAppliances: [Appliance] {
+        appliances.filter {
+            searchText.isEmpty || $0.name.localizedCaseInsensitiveContains(searchText)
+        }
+    }
     
     var body: some View {
         NavigationStack {
             Group {
-                if appliances.isEmpty {
+                if filteredAppliances.isEmpty {
                     emptyStateView
                 } else {
                     applianceList
                 }
             }
+            .background(Color(.systemGroupedBackground))
             .navigationTitle("가전제품")
             .navigationBarTitleDisplayMode(.large)
+            .searchable(text: $searchText, prompt: "기기명 검색")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -38,7 +47,7 @@ struct ApplianceListView: View {
     // MARK: - 가전 리스트
     private var applianceList: some View {
         List {
-            ForEach(appliances) { appliance in
+            ForEach(filteredAppliances) { appliance in
                 NavigationLink(destination: ApplianceDetailView(appliance: appliance)) {
                     ApplianceRowView(appliance: appliance)
                 }
@@ -53,15 +62,13 @@ struct ApplianceListView: View {
     private var emptyStateView: some View {
         VStack(spacing: 16) {
             Spacer()
-            Image(systemName: "washer")
+            Image(systemName: searchText.isEmpty ? "washer" : "magnifyingglass")
                 .font(.system(size: 60))
                 .foregroundStyle(.tertiary)
-            Text("등록된 가전제품이 없어요")
-                .font(.title3)
-                .fontWeight(.medium)
-            Text("우측 상단 + 버튼으로 추가해보세요")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            Text(searchText.isEmpty ? "등록된 가전제품이 없어요" : "검색 결과가 없어요")
+                .font(.title3).fontWeight(.medium)
+            Text(searchText.isEmpty ? "우측 상단 + 버튼으로 추가해보세요" : "'\(searchText)'와 일치하는 기기가 없어요")
+                .font(.subheadline).foregroundStyle(.secondary)
             Spacer()
         }
     }
@@ -69,7 +76,7 @@ struct ApplianceListView: View {
     // MARK: - 삭제
     private func deleteAppliances(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(appliances[index])
+            modelContext.delete(filteredAppliances[index])
         }
     }
 }
@@ -78,7 +85,6 @@ struct ApplianceListView: View {
 struct ApplianceRowView: View {
     let appliance: Appliance
     
-    // 가장 긴급한 태스크 추출
     var urgentTask: MaintenanceTask? {
         appliance.tasks
             .filter { $0.nextMaintenanceDate != nil }
@@ -97,26 +103,28 @@ struct ApplianceRowView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-                
                 Spacer()
-                
-                // 관리 항목 수
                 Text("\(appliance.tasks.count)개 항목")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             
-            // 가장 임박한 관리 항목 표시
             if let task = urgentTask {
                 HStack(spacing: 6) {
                     statusDot(task.status)
                     Text(task.taskName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    if let next = task.nextMaintenanceDate {
-                        Text(next.formatted(date: .abbreviated, time: .omitted))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    Spacer()
+                    if let dDay = task.dDay {
+                        let color: Color = dDay < 0 ? .red : dDay <= 7 ? .orange : .green
+                        let text = dDay < 0 ? "D+\(abs(dDay))" : dDay == 0 ? "D-Day" : "D-\(dDay)"
+                        Text(text)
+                            .font(.caption2).fontWeight(.bold)
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(color.opacity(0.15))
+                            .foregroundStyle(color)
+                            .clipShape(Capsule())
                     }
                 }
             }
@@ -124,7 +132,6 @@ struct ApplianceRowView: View {
         .padding(.vertical, 4)
     }
     
-    @ViewBuilder
     private func statusDot(_ status: MaintenanceStatus) -> some View {
         let color: Color = {
             switch status {
@@ -134,8 +141,6 @@ struct ApplianceRowView: View {
             case .unknown: return .gray
             }
         }()
-        Circle()
-            .fill(color)
-            .frame(width: 7, height: 7)
+        return Circle().fill(color).frame(width: 7, height: 7)
     }
 }
